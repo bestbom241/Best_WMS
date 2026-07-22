@@ -166,6 +166,10 @@ func main() {
 		AllowHeaders: []string{"Authorization", "Content-Type"},
 	}))
 
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	// routes ที่ต้องการ token
 	auth := r.Group("/api", authMiddleware())
 

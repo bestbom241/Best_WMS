@@ -65,6 +65,10 @@ func main() {
 		AllowHeaders: []string{"Authorization", "Content-Type"},
 	}))
 
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	// ── Stock endpoints ──────────────────────────────
 
 	r.GET("/api/stock", func(c *gin.Context) {

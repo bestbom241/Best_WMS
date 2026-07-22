@@ -76,6 +76,10 @@ func main() {
 		AllowHeaders: []string{"Authorization", "Content-Type"},
 	}))
 
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	// Register — สมัครสมาชิก
 	r.POST("/api/auth/register", func(c *gin.Context) {
 		var req RegisterRequest
