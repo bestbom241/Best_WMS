@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - wms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  wms-auth-api:
+    build: ./wms-auth-api
+    environment:
+      DB_HOST: postgres
+    ports:
+      - "${AUTH_PORT}:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  wms-inventory-api:
+    build: ./wms-inventory-api
+    environment:
+      DB_HOST: postgres
+    ports:
+      - "${INVENTORY_PORT}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  wms-master-data-api:
+    build: ./wms-master-data-api
+    environment:
+      DB_HOST: postgres
+    ports:
+      - "${MASTER_DATA_PORT}:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  wms-gr-api:
+    build: ./wms-gr-api
+    environment:
+      DB_HOST: postgres
+      INVENTORY_URL: http://wms-inventory-api:3001
+      MASTER_DATA_URL: http://wms-master-data-api:3003
+    ports:
+      - "${GR_PORT}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wms-inventory-api:
+        condition: service_started
+      wms-master-data-api:
+        condition: service_started
+
+  wms-gr-frontend:
+    build: ./wms-gr-frontend
+    ports:
+      - "${FRONTEND_PORT}:80"
+    depends_on:
+      - wms-auth-api
+      - wms-inventory-api
+      - wms-master-data-api
+      - wms-gr-api
+
+volumes:
+  wms_postgres_data:

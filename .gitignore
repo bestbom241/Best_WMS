@@ -1,0 +1,21 @@
+# secrets / local config
+.env
+.env.local
+
+# Go build artifacts (compiled binaries, no extension, per-service name)
+wms-auth-api/wms-auth-api
+wms-gr-api/wms-gr-api
+wms-inventory-api/wms-inventory-api
+wms-master-data-api/wms-master-data-api
+*.exe
+
+# Node / frontend
+node_modules/
+dist/
+
+# OS
+.DS_Store
+
+# Claude Code local settings (personal, not shared)
+**/.claude/settings.local.json
+**/.claude/scheduled_tasks.lock
