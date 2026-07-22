@@ -1,4 +1,4 @@
-# WMS
+# WMS Project
 
 Warehouse management system แบบ microservices (Go + Postgres + Vue)
 
