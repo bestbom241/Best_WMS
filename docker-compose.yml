@@ -24,6 +24,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3002/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   wms-inventory-api:
     build: ./wms-inventory-api
@@ -34,6 +39,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   wms-master-data-api:
     build: ./wms-master-data-api
@@ -44,6 +54,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3003/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   wms-gr-api:
     build: ./wms-gr-api
@@ -57,19 +72,28 @@ services:
       postgres:
         condition: service_healthy
       wms-inventory-api:
-        condition: service_started
+        condition: service_healthy
       wms-master-data-api:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   wms-gr-frontend:
     build: ./wms-gr-frontend
     ports:
       - "${FRONTEND_PORT}:80"
     depends_on:
-      - wms-auth-api
-      - wms-inventory-api
-      - wms-master-data-api
-      - wms-gr-api
+      wms-auth-api:
+        condition: service_healthy
+      wms-inventory-api:
+        condition: service_healthy
+      wms-master-data-api:
+        condition: service_healthy
+      wms-gr-api:
+        condition: service_healthy
 
 volumes:
   wms_postgres_data:
