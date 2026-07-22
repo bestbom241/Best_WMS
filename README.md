@@ -1,4 +1,4 @@
-# WMS
+# WMS (Warehouse Management System)
 
 Warehouse management system แบบ microservices (Go + Postgres + Vue)
 
