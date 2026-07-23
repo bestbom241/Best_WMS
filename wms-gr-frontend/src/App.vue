@@ -21,10 +21,12 @@
   <div v-else class="app-shell">
     <nav class="navbar">
       <div class="nav-brand">WMS</div>
+      <RouterLink to="/gr-plans">GR Plan</RouterLink>
       <RouterLink to="/">รับสินค้า (GR)</RouterLink>
       <RouterLink to="/inventory">Inventory</RouterLink>
       <RouterLink to="/locations">Locations</RouterLink>
       <RouterLink to="/products">Products</RouterLink>
+      <RouterLink to="/suppliers">Suppliers</RouterLink>
       <RouterLink to="/report">Report</RouterLink>
       <button class="logout-btn" @click="logout">Logout</button>
     </nav>

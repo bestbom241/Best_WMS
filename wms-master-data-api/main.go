@@ -40,6 +40,16 @@ type Location struct {
 	IsActive     bool           `json:"is_active" gorm:"default:true"`
 }
 
+type Supplier struct {
+	ID           string         `json:"id" gorm:"type:varchar(36);primaryKey"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	SupplierCode string         `json:"supplier_code" gorm:"uniqueIndex"`
+	Name         string         `json:"name"`
+	IsActive     bool           `json:"is_active" gorm:"default:true"`
+}
+
 type ProductReportRow struct {
 	SKU      string `json:"sku"`
 	Name     string `json:"name"`
@@ -80,6 +90,7 @@ func initDB() {
 	fmt.Println("เชื่อม db สำเร็จ")
 	db.AutoMigrate(&Product{})
 	db.AutoMigrate(&Location{})
+	db.AutoMigrate(&Supplier{})
 	fmt.Println("AutoMigrate สำเร็จ")
 }
 
@@ -178,6 +189,82 @@ func main() {
 		p.IsActive = false
 		db.Save(&p)
 		c.JSON(http.StatusOK, gin.H{"message": "ปิดสินค้าสำเร็จ"})
+	})
+
+	// ── Supplier endpoints ───────────────────────────
+
+	r.GET("/api/suppliers", func(c *gin.Context) {
+		var list []Supplier
+		db.Where("is_active = ?", true).Find(&list)
+		c.JSON(http.StatusOK, list)
+	})
+
+	r.GET("/api/suppliers/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var s Supplier
+		result := db.Where("id = ? OR supplier_code = ?", id, id).First(&s)
+		if result.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ supplier นี้"})
+			return
+		}
+		c.JSON(http.StatusOK, s)
+	})
+
+	r.POST("/api/suppliers", func(c *gin.Context) {
+		var body struct {
+			SupplierCode string `json:"supplier_code"`
+			Name         string `json:"name"`
+		}
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if body.SupplierCode == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "supplier_code ห้ามว่าง"})
+			return
+		}
+		s := Supplier{
+			ID:           uuid.New().String(),
+			SupplierCode: body.SupplierCode,
+			Name:         body.Name,
+			IsActive:     true,
+		}
+		result := db.Create(&s)
+		if result.Error != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "supplier_code นี้มีอยู่แล้ว"})
+			return
+		}
+		c.JSON(http.StatusCreated, s)
+	})
+
+	r.PUT("/api/suppliers/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var s Supplier
+		if err := db.First(&s, "id = ?", id).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ supplier นี้"})
+			return
+		}
+		var body struct {
+			Name     string `json:"name"`
+			IsActive bool   `json:"is_active"`
+		}
+		c.BindJSON(&body)
+		s.Name = body.Name
+		s.IsActive = body.IsActive
+		db.Save(&s)
+		c.JSON(http.StatusOK, s)
+	})
+
+	r.DELETE("/api/suppliers/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var s Supplier
+		if err := db.First(&s, "id = ?", id).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ supplier นี้"})
+			return
+		}
+		s.IsActive = false
+		db.Save(&s)
+		c.JSON(http.StatusOK, gin.H{"message": "ปิด supplier สำเร็จ"})
 	})
 
 	// ── Location endpoints ───────────────────────────

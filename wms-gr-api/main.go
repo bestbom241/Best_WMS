@@ -29,12 +29,37 @@ type GoodsReceive struct {
 	Status    string         `json:"status"`
 	SKU       string         `json:"sku"`
 	Qty       int            `json:"qty"`
+	PlanID    string         `json:"plan_id"`
 }
 
 type CreateGoodsReceiveRequest struct {
+	PlanID     string `json:"plan_id"`
 	SKU        string `json:"sku"`
 	Qty        int    `json:"qty"`
 	LocationID string `json:"location_id"`
+}
+
+// GRPlan คือแผนรับสินค้าที่วางไว้ล่วงหน้า (Plan Goods Receipt) — รับจริงเกิดขึ้นทีหลัง
+// อ้างอิง plan นี้ และรับแบบ partial ได้หลายรอบจนกว่าจะครบ plan_qty
+type GRPlan struct {
+	ID           string         `json:"id" gorm:"type:varchar(36);primaryKey"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	PlanCode     string         `json:"plan_code" gorm:"uniqueIndex"`
+	SupplierCode string         `json:"supplier_code"`
+	SKU          string         `json:"sku"`
+	PlanQty      int            `json:"plan_qty"`
+	ReceivedQty  int            `json:"received_qty"`
+	PlanDate     string         `json:"plan_date"`
+	Status       string         `json:"status"` // New / Partial / Completed
+}
+
+type CreateGRPlanRequest struct {
+	SupplierCode string `json:"supplier_code"`
+	SKU          string `json:"sku"`
+	PlanQty      int    `json:"plan_qty"`
+	PlanDate     string `json:"plan_date"`
 }
 
 var db *gorm.DB
@@ -52,6 +77,7 @@ func initDB() {
 	}
 	fmt.Println("เชื่อม db สำเร็จ")
 	err = db.AutoMigrate(&GoodsReceive{})
+	db.AutoMigrate(&GRPlan{})
 	if err != nil {
 		fmt.Println("AutoMigrate error:", err.Error())
 	} else {
@@ -78,6 +104,26 @@ func generatePONumber() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("ไม่สามารถ generate PO number ได้")
+}
+
+func generatePlanCode() (string, error) {
+	today := time.Now().Format("0601")
+	prefix := "PGR" + today + "-"
+
+	var count int64
+	db.Model(&GRPlan{}).
+		Where("plan_code LIKE ?", prefix+"%").
+		Count(&count)
+
+	for i := int64(1); i <= 20; i++ {
+		candidate := fmt.Sprintf("%s%04d", prefix, count+i)
+		var existing GRPlan
+		result := db.Where("plan_code = ?", candidate).First(&existing)
+		if result.Error != nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("ไม่สามารถ generate plan code ได้")
 }
 
 type ShopeeOrder struct {
@@ -173,6 +219,72 @@ func main() {
 	// routes ที่ต้องการ token
 	auth := r.Group("/api", authMiddleware())
 
+	// ── GR Plan: วางแผนรับสินค้าล่วงหน้า ──
+	auth.GET("/gr-plans", func(c *gin.Context) {
+		var list []GRPlan
+		query := db.Model(&GRPlan{})
+		if status := c.Query("status"); status != "" {
+			query = query.Where("status = ?", status)
+		}
+		if supplier := c.Query("supplier_code"); supplier != "" {
+			query = query.Where("supplier_code ILIKE ?", "%"+supplier+"%")
+		}
+		if sku := c.Query("sku"); sku != "" {
+			query = query.Where("sku ILIKE ?", "%"+sku+"%")
+		}
+		query.Order("created_at desc").Find(&list)
+		c.JSON(http.StatusOK, list)
+	})
+
+	auth.GET("/gr-plans/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var plan GRPlan
+		if err := db.First(&plan, "id = ?", id).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ plan นี้"})
+			return
+		}
+		c.JSON(http.StatusOK, plan)
+	})
+
+	auth.POST("/gr-plans", func(c *gin.Context) {
+		var req CreateGRPlanRequest
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if req.SKU == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Please input SKU"})
+			return
+		}
+		if req.PlanQty <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Please input a valid plan quantity"})
+			return
+		}
+
+		planCode, err := generatePlanCode()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		plan := GRPlan{
+			ID:           uuid.New().String(),
+			PlanCode:     planCode,
+			SupplierCode: req.SupplierCode,
+			SKU:          req.SKU,
+			PlanQty:      req.PlanQty,
+			ReceivedQty:  0,
+			PlanDate:     req.PlanDate,
+			Status:       "New",
+		}
+		result := db.Create(&plan)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, plan)
+	})
+
 	// ── ขอเลข PO number ถัดไปมาแสดงล่วงหน้า (ก่อน submit) ──
 	auth.GET("/receiving/next-po-number", func(c *gin.Context) {
 		po, err := generatePONumber()
@@ -220,6 +332,10 @@ func main() {
 		}
 
 		// validation — เช็ค blank input (po_number ไม่ต้องเช็คแล้ว เพราะ backend เป็นคน generate เอง)
+		if req.PlanID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Please select a GR plan"})
+			return
+		}
 		if req.SKU == "" {
 			fmt.Println("Error: sku ว่าง")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Please input SKU"})
@@ -228,6 +344,16 @@ func main() {
 		if req.Qty <= 0 {
 			fmt.Println("Error: qty ต้องมากกว่า 0")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Please input a valid quantity"})
+			return
+		}
+
+		var plan GRPlan
+		if err := db.First(&plan, "id = ?", req.PlanID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ plan นี้"})
+			return
+		}
+		if plan.Status == "Completed" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "plan นี้รับสินค้าครบแล้ว"})
 			return
 		}
 
@@ -245,6 +371,7 @@ func main() {
 			SKU:      req.SKU,
 			Qty:      req.Qty,
 			Status:   "pending",
+			PlanID:   req.PlanID,
 		}
 
 		result := db.Create(&gr)
@@ -252,6 +379,15 @@ func main() {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 			return
 		}
+
+		// อัปเดตความคืบหน้าของ plan — รับได้ทีละส่วน (partial) จนกว่าจะครบ
+		plan.ReceivedQty += req.Qty
+		if plan.ReceivedQty >= plan.PlanQty {
+			plan.Status = "Completed"
+		} else {
+			plan.Status = "Partial"
+		}
+		db.Save(&plan)
 
 		inventoryURL := os.Getenv("INVENTORY_URL") + "/api/stock"
 		if os.Getenv("INVENTORY_URL") == "" {
