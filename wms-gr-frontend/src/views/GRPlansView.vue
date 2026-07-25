@@ -3,9 +3,14 @@
     <div class="form-card">
       <h2>+ New Plan</h2>
       <div class="form-group">
-        <label>Supplier Code</label>
-        <input v-model="form.supplier_code" placeholder="เช่น VTE00001" />
-      </div>
+       <label>Supplier Code</label>
+       <select v-model="form.supplier_code">
+        <option value="">-- เลือก Supplier --</option>
+        <option v-for="s in suppliers" :key="s.id" :value="s.supplier_code">
+      {{ s.supplier_code }} — {{ s.name }}
+    </option>
+  </select>
+</div>
       <div class="form-group">
         <label>สินค้า (SKU) <span class="required">*</span></label>
         <select v-model="form.sku" :class="{ 'input-error': errors.sku }">
