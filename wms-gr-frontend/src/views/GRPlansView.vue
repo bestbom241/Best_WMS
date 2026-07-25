@@ -69,6 +69,7 @@ const form = ref({ supplier_code: '', sku: '', plan_qty: 0, plan_date: '' })
 const errors = ref({ sku: '', plan_qty: '' })
 const plans = ref([])
 const products = ref([])
+const suppliers = ref([])
 const creating = ref(false)
 const message = ref('')
 const success = ref(false)
@@ -88,6 +89,15 @@ const fetchProducts = async () => {
     products.value = res.data
   } catch (err) {
     console.error('โหลดสินค้าไม่ได้:', err)
+  }
+}
+
+const fetchSuppliers = async () => {
+  try {
+    const res = await axios.get('/api/suppliers')
+    suppliers.value = res.data
+  } catch (err) {
+    console.error('โหลด supplier ไม่ได้:', err)
   }
 }
 
@@ -123,6 +133,7 @@ const createPlan = async () => {
 onMounted(() => {
   fetchPlans()
   fetchProducts()
+  fetchSuppliers()
 })
 </script>
 
