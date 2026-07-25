@@ -1,23 +1,23 @@
 <template>
   <div class="container">
     <div class="form-card">
-      <h2>รับสินค้าเข้าคลัง</h2>
+      <h2>รับสินค้าเข้าคลัง (อิงจาก Plan)</h2>
       <div class="form-group">
-        <label>PO Number</label>
+        <label>Plan <span class="required">*</span></label>
+        <select v-model="form.plan_id" @change="onPlanChange" :class="{ 'input-error': errors.plan_id }">
+          <option value="">-- เลือก Plan --</option>
+          <option v-for="p in plans" :key="p.id" :value="p.id">
+            {{ p.plan_code }} — {{ p.sku }} (เหลือรับ {{ p.plan_qty - p.received_qty }}/{{ p.plan_qty }})
+          </option>
+        </select>
+        <span v-if="errors.plan_id" class="error-msg">{{ errors.plan_id }}</span>
+      </div>
+      <div class="form-group" v-if="selectedPlan">
+        <label>PO Number (เลขที่ใบรับจริงรอบนี้)</label>
         <input v-model="form.po_number" readonly class="input-readonly" />
       </div>
       <div class="form-group">
-        <label>สินค้า (SKU) <span class="required">*</span></label>
-        <select v-model="form.sku" :class="{ 'input-error': errors.sku }">
-          <option value="">-- เลือกสินค้า --</option>
-          <option v-for="p in products" :key="p.id" :value="p.sku">
-            {{ p.sku }} — {{ p.name }}
-          </option>
-        </select>
-        <span v-if="errors.sku" class="error-msg">{{ errors.sku }}</span>
-      </div>
-      <div class="form-group">
-        <label>จำนวน (Qty) <span class="required">*</span></label>
+        <label>จำนวนที่รับจริงรอบนี้ (Qty) <span class="required">*</span></label>
         <input v-model.number="form.qty" type="number" :class="{ 'input-error': errors.qty }"/>
         <span v-if="errors.qty" class="error-msg">{{ errors.qty }}</span>
       </div>
@@ -32,7 +32,7 @@
         <span v-if="errors.location_id" class="error-msg">{{ errors.location_id }}</span>
       </div>
       <button @click="submitGR" :disabled="loading">
-        {{ loading ? 'กำลังบันทึก...' : 'Confirm GR' }}
+        {{ loading ? 'กำลังบันทึก...' : 'Confirm Receive' }}
       </button>
       <div v-if="message" :class="['message', success ? 'success' : 'error']">
         {{ message }}
@@ -46,13 +46,15 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { authHeader } from '../auth'
 
-const form = ref({ po_number: '', sku: '', qty: 0, location_id: '' })
-const errors = ref({ sku: '', qty: '', location_id: '' })
+const form = ref({ plan_id: '', po_number: '', qty: 0, location_id: '' })
+const errors = ref({ plan_id: '', qty: '', location_id: '' })
+const plans = ref([])
 const locations = ref([])
-const products = ref([])
 const loading = ref(false)
 const message = ref('')
 const success = ref(false)
+
+const selectedPlan = ref(null)
 
 const fetchLocations = async () => {
   try {
@@ -63,12 +65,12 @@ const fetchLocations = async () => {
   }
 }
 
-const fetchProducts = async () => {
+const fetchPlans = async () => {
   try {
-    const res = await axios.get('/api/products')
-    products.value = res.data
+    const res = await axios.get('/api/gr-plans', { headers: authHeader() })
+    plans.value = res.data.filter(p => p.status !== 'Completed')
   } catch (err) {
-    console.error('โหลดสินค้าไม่ได้:', err)
+    console.error('โหลด plan ไม่ได้:', err)
   }
 }
 
@@ -81,10 +83,14 @@ const fetchNextPO = async () => {
   }
 }
 
+const onPlanChange = () => {
+  selectedPlan.value = plans.value.find(p => p.id === form.value.plan_id) || null
+}
+
 const validate = () => {
-  errors.value = { sku: '', qty: '', location_id: '' }
+  errors.value = { plan_id: '', qty: '', location_id: '' }
   let valid = true
-  if (!form.value.sku) { errors.value.sku = 'Required field'; valid = false }
+  if (!form.value.plan_id) { errors.value.plan_id = 'Required field'; valid = false }
   if (form.value.qty <= 0) { errors.value.qty = 'Required field'; valid = false }
   if (!form.value.location_id) { errors.value.location_id = 'Required field'; valid = false }
   return valid
@@ -95,12 +101,19 @@ const submitGR = async () => {
   loading.value = true
   message.value = ''
   try {
-    await axios.post('/api/receiving', form.value, { headers: authHeader() })
+    await axios.post('/api/receiving', {
+      plan_id: form.value.plan_id,
+      sku: selectedPlan.value.sku,
+      qty: form.value.qty,
+      location_id: form.value.location_id,
+    }, { headers: authHeader() })
     message.value = 'รับสินค้าสำเร็จ!'
     success.value = true
-    form.value = { po_number: '', sku: '', qty: 0, location_id: '' }
-    errors.value = { sku: '', qty: '', location_id: '' }
+    form.value = { plan_id: '', po_number: '', qty: 0, location_id: '' }
+    selectedPlan.value = null
+    errors.value = { plan_id: '', qty: '', location_id: '' }
     fetchNextPO()
+    fetchPlans()
   } catch (err) {
     message.value = err.response?.data?.error || 'เกิดข้อผิดพลาด'
     success.value = false
@@ -112,7 +125,7 @@ const submitGR = async () => {
 onMounted(() => {
   fetchNextPO()
   fetchLocations()
-  fetchProducts()
+  fetchPlans()
 })
 </script>
 
