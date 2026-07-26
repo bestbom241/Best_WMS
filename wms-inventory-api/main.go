@@ -14,21 +14,23 @@ import (
 )
 
 type Inventory struct {
-	ID        string         `json:"id" gorm:"type:varchar(36);primaryKey"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `json:"deleted_at" gorm:"index"`
-	SKU       string         `json:"sku" gorm:"uniqueIndex:idx_sku_location"`
-	Name      string         `json:"name"`
-	Qty       int            `json:"qty"`
-	Location  string         `json:"location" gorm:"uniqueIndex:idx_sku_location"`
+	ID            string         `json:"id" gorm:"type:varchar(36);primaryKey"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	SKU           string         `json:"sku" gorm:"uniqueIndex:idx_sku_location"`
+	Name          string         `json:"name"`
+	Qty           int            `json:"qty"`
+	Location      string         `json:"location" gorm:"uniqueIndex:idx_sku_location"`
+	WarehouseCode string         `json:"warehouse_code"`
 }
 
 type UpdateStockRequest struct {
-	SKU      string `json:"sku"`
-	Qty      int    `json:"qty"`
-	Name     string `json:"name"`
-	Location string `json:"location"`
+	SKU           string `json:"sku"`
+	Qty           int    `json:"qty"`
+	Name          string `json:"name"`
+	Location      string `json:"location"`
+	WarehouseCode string `json:"warehouse_code"`
 }
 
 type DeductStockRequest struct {
@@ -38,10 +40,11 @@ type DeductStockRequest struct {
 }
 
 type InventoryReportRow struct {
-	SKU      string `json:"sku"`
-	Name     string `json:"name"`
-	Qty      int    `json:"qty"`
-	Location string `json:"location"`
+	SKU           string `json:"sku"`
+	Name          string `json:"name"`
+	Qty           int    `json:"qty"`
+	Location      string `json:"location"`
+	WarehouseCode string `json:"warehouse_code"`
 }
 
 var db *gorm.DB
@@ -105,15 +108,19 @@ func main() {
 		result := db.Where("sku = ? AND location = ?", req.SKU, loc).First(&inv)
 		if result.Error != nil {
 			inv = Inventory{
-				ID:       uuid.New().String(),
-				SKU:      req.SKU,
-				Name:     req.Name,
-				Qty:      req.Qty,
-				Location: loc,
+				ID:            uuid.New().String(),
+				SKU:           req.SKU,
+				Name:          req.Name,
+				Qty:           req.Qty,
+				Location:      loc,
+				WarehouseCode: req.WarehouseCode,
 			}
 			db.Create(&inv)
 		} else {
 			inv.Qty += req.Qty
+			if req.WarehouseCode != "" {
+				inv.WarehouseCode = req.WarehouseCode
+			}
 			db.Save(&inv)
 		}
 		c.JSON(http.StatusOK, inv)
@@ -145,7 +152,7 @@ func main() {
 
 	r.GET("/api/report/inventory", func(c *gin.Context) {
 		rows := []InventoryReportRow{}
-		db.Raw("SELECT sku, name, qty, location FROM inventories WHERE deleted_at IS NULL ORDER BY sku").Scan(&rows)
+		db.Raw("SELECT sku, name, qty, location, warehouse_code FROM inventories WHERE deleted_at IS NULL ORDER BY sku").Scan(&rows)
 		c.JSON(http.StatusOK, rows)
 	})
 
