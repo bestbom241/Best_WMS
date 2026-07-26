@@ -15,6 +15,16 @@
 
       <div class="report-row">
         <div>
+          <strong>Inventory (with Zone/Rack/Shelf)</strong>
+          <p>สต็อกสินค้าคงคลัง join กับ Location — เห็นตำแหน่งเก็บละเอียดขึ้น</p>
+        </div>
+        <button @click="exportInventoryV2" :disabled="loading.inventoryV2">
+          {{ loading.inventoryV2 ? 'กำลังส่งออก...' : 'Export Inventory v2.xlsx' }}
+        </button>
+      </div>
+
+      <div class="report-row">
+        <div>
           <strong>Locations</strong>
           <p>Location master (Code, Zone, Rack, Shelf, Capacity)</p>
         </div>
@@ -43,7 +53,7 @@ import { ref } from 'vue'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 
-const loading = ref({ inventory: false, locations: false, products: false })
+const loading = ref({ inventory: false, inventoryV2: false, locations: false, products: false })
 const errorMsg = ref('')
 
 const downloadAsXlsx = (rows, sheetName, filename) => {
@@ -75,6 +85,12 @@ const exportInventory = () => runExport(
   'inventory', '/api/report/inventory',
   [['sku', 'SKU'], ['name', 'ชื่อสินค้า'], ['qty', 'จำนวนคงเหลือ'], ['warehouse_code', 'Warehouse'], ['location', 'Location']],
   'Inventory', 'inventory.xlsx'
+)
+
+const exportInventoryV2 = () => runExport(
+  'inventoryV2', '/api/report/inventory_v2',
+  [['sku', 'SKU'], ['name', 'ชื่อสินค้า'], ['qty', 'จำนวนคงเหลือ'], ['warehouse_code', 'Warehouse'], ['location', 'Location'], ['zone', 'Zone'], ['rack', 'Rack'], ['shelf', 'Shelf']],
+  'Inventory v2', 'inventory_v2.xlsx'
 )
 
 const exportLocations = () => runExport(

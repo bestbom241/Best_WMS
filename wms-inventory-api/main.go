@@ -47,9 +47,12 @@ type InventoryReportRow struct {
 	WarehouseCode string `json:"warehouse_code"`
 }
 
-// InventoryReportV2Row เหมือนตัวเดิม แต่เสริมข้อมูล zone/rack/shelf จาก locations เข้ามาด้วย
+// InventoryReportV2Row เหมือนตัวเดิม แต่เสริมข้อมูล product (name/category/unit) และ zone/rack/shelf จาก locations เข้ามาด้วย
 type InventoryReportV2Row struct {
 	SKU           string `json:"sku"`
+	ProductName   string `json:"product_name"`
+	Category      string `json:"category"`
+	Unit          string `json:"unit"`
 	Name          string `json:"name"`
 	Qty           int    `json:"qty"`
 	Location      string `json:"location"`
@@ -171,9 +174,10 @@ func main() {
 	// v2: join กับ locations (คนละ service เป็นเจ้าของ table นี้ แต่ใช้ database เดียวกัน) เพื่อโชว์ zone/rack/shelf เพิ่ม
 	r.GET("/api/report/inventory_v2", func(c *gin.Context) {
 		rows := []InventoryReportV2Row{}
-		db.Raw(`SELECT i.sku, i.name, i.qty, i.location, i.warehouse_code, l.zone, l.rack, l.shelf
+		db.Raw(`SELECT i.sku, p.name AS product_name, p.category, p.unit, i.name, i.qty, i.location, i.warehouse_code, l.zone, l.rack, l.shelf
 			FROM inventories i
 			LEFT JOIN locations l ON l.location_code = i.location
+			LEFT JOIN products p ON p.sku = i.sku
 			WHERE i.deleted_at IS NULL
 			ORDER BY i.sku`).Scan(&rows)
 		c.JSON(http.StatusOK, rows)
