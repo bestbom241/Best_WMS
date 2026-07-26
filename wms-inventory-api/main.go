@@ -31,6 +31,12 @@ type UpdateStockRequest struct {
 	Location string `json:"location"`
 }
 
+type DeductStockRequest struct {
+	SKU      string `json:"sku"`
+	Location string `json:"location"`
+	Qty      int    `json:"qty"`
+}
+
 type InventoryReportRow struct {
 	SKU      string `json:"sku"`
 	Name     string `json:"name"`
@@ -110,6 +116,28 @@ func main() {
 			inv.Qty += req.Qty
 			db.Save(&inv)
 		}
+		c.JSON(http.StatusOK, inv)
+	})
+
+	// ตัดสต็อกออก (ใช้ตอน picking/ส่งของออก) — ป้องกันไม่ให้ตัดจนติดลบ
+	r.POST("/api/stock/deduct", func(c *gin.Context) {
+		var req DeductStockRequest
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		var inv Inventory
+		result := db.Where("sku = ? AND location = ?", req.SKU, req.Location).First(&inv)
+		if result.Error != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่พบสต็อกของ SKU นี้ที่ location นี้"})
+			return
+		}
+		if inv.Qty < req.Qty {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("สต็อกไม่พอ (มีอยู่ %d, ขอตัด %d)", inv.Qty, req.Qty)})
+			return
+		}
+		inv.Qty -= req.Qty
+		db.Save(&inv)
 		c.JSON(http.StatusOK, inv)
 	})
 

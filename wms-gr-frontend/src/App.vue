@@ -23,10 +23,13 @@
       <div class="nav-brand">WMS</div>
       <RouterLink to="/gr-plans">GR Plan</RouterLink>
       <RouterLink to="/">รับสินค้า (GR)</RouterLink>
+      <RouterLink to="/outbound-plans">Outbound Plan</RouterLink>
+      <RouterLink to="/picking">Picking</RouterLink>
       <RouterLink to="/inventory">Inventory</RouterLink>
       <RouterLink to="/locations">Locations</RouterLink>
       <RouterLink to="/products">Products</RouterLink>
       <RouterLink to="/suppliers">Suppliers</RouterLink>
+      <RouterLink to="/customers">Customers</RouterLink>
       <RouterLink to="/report">Report</RouterLink>
       <button class="logout-btn" @click="logout">Logout</button>
     </nav>
