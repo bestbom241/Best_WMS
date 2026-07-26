@@ -47,6 +47,18 @@ type InventoryReportRow struct {
 	WarehouseCode string `json:"warehouse_code"`
 }
 
+// InventoryReportV2Row เหมือนตัวเดิม แต่เสริมข้อมูล zone/rack/shelf จาก locations เข้ามาด้วย
+type InventoryReportV2Row struct {
+	SKU           string `json:"sku"`
+	Name          string `json:"name"`
+	Qty           int    `json:"qty"`
+	Location      string `json:"location"`
+	WarehouseCode string `json:"warehouse_code"`
+	Zone          string `json:"zone"`
+	Rack          string `json:"rack"`
+	Shelf         string `json:"shelf"`
+}
+
 var db *gorm.DB
 
 func initDB() {
@@ -153,6 +165,17 @@ func main() {
 	r.GET("/api/report/inventory", func(c *gin.Context) {
 		rows := []InventoryReportRow{}
 		db.Raw("SELECT sku, name, qty, location, warehouse_code FROM inventories WHERE deleted_at IS NULL ORDER BY sku").Scan(&rows)
+		c.JSON(http.StatusOK, rows)
+	})
+
+	// v2: join กับ locations (คนละ service เป็นเจ้าของ table นี้ แต่ใช้ database เดียวกัน) เพื่อโชว์ zone/rack/shelf เพิ่ม
+	r.GET("/api/report/inventory_v2", func(c *gin.Context) {
+		rows := []InventoryReportV2Row{}
+		db.Raw(`SELECT i.sku, i.name, i.qty, i.location, i.warehouse_code, l.zone, l.rack, l.shelf
+			FROM inventories i
+			LEFT JOIN locations l ON l.location_code = i.location
+			WHERE i.deleted_at IS NULL
+			ORDER BY i.sku`).Scan(&rows)
 		c.JSON(http.StatusOK, rows)
 	})
 
