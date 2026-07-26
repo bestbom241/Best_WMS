@@ -33,10 +33,11 @@ type GoodsReceive struct {
 }
 
 type CreateGoodsReceiveRequest struct {
-	PlanID     string `json:"plan_id"`
-	SKU        string `json:"sku"`
-	Qty        int    `json:"qty"`
-	LocationID string `json:"location_id"`
+	PlanID        string `json:"plan_id"`
+	SKU           string `json:"sku"`
+	Qty           int    `json:"qty"`
+	LocationID    string `json:"location_id"`
+	WarehouseCode string `json:"warehouse_code"`
 }
 
 // GRPlan คือแผนรับสินค้าที่วางไว้ล่วงหน้า (Plan Goods Receipt) — รับจริงเกิดขึ้นทีหลัง
@@ -346,6 +347,10 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Please input a valid quantity"})
 			return
 		}
+		if req.WarehouseCode == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Please select a warehouse"})
+			return
+		}
 
 		var plan GRPlan
 		if err := db.First(&plan, "id = ?", req.PlanID).Error; err != nil {
@@ -396,10 +401,11 @@ func main() {
 
 		locationCode := getLocationCode(req.LocationID)
 		payload, _ := json.Marshal(map[string]interface{}{
-			"sku":      req.SKU,
-			"name":     "สินค้า " + req.SKU,
-			"qty":      req.Qty,
-			"location": locationCode,
+			"sku":            req.SKU,
+			"name":           "สินค้า " + req.SKU,
+			"qty":            req.Qty,
+			"location":       locationCode,
+			"warehouse_code": req.WarehouseCode,
 		})
 
 		resp, err := http.Post(inventoryURL, "application/json", bytes.NewBuffer(payload))

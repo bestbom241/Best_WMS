@@ -22,6 +22,16 @@
         <span v-if="errors.qty" class="error-msg">{{ errors.qty }}</span>
       </div>
       <div class="form-group">
+        <label>Warehouse <span class="required">*</span></label>
+        <select v-model="form.warehouse_code" :class="{ 'input-error': errors.warehouse_code }">
+          <option value="">-- เลือก Warehouse --</option>
+          <option v-for="wh in warehouses" :key="wh.id" :value="wh.warehouse_code">
+            {{ wh.warehouse_code }} — {{ wh.name }}
+          </option>
+        </select>
+        <span v-if="errors.warehouse_code" class="error-msg">{{ errors.warehouse_code }}</span>
+      </div>
+      <div class="form-group">
         <label>Location <span class="required">*</span></label>
         <select v-model="form.location_id" :class="{ 'input-error': errors.location_id }">
           <option value="">-- เลือก Location --</option>
@@ -46,10 +56,11 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { authHeader } from '../auth'
 
-const form = ref({ plan_id: '', po_number: '', qty: 0, location_id: '' })
-const errors = ref({ plan_id: '', qty: '', location_id: '' })
+const form = ref({ plan_id: '', po_number: '', qty: 0, location_id: '', warehouse_code: '' })
+const errors = ref({ plan_id: '', qty: '', location_id: '', warehouse_code: '' })
 const plans = ref([])
 const locations = ref([])
+const warehouses = ref([])
 const loading = ref(false)
 const message = ref('')
 const success = ref(false)
@@ -62,6 +73,15 @@ const fetchLocations = async () => {
     locations.value = res.data
   } catch (err) {
     console.error('โหลด location ไม่ได้:', err)
+  }
+}
+
+const fetchWarehouses = async () => {
+  try {
+    const res = await axios.get('/api/warehouses')
+    warehouses.value = res.data
+  } catch (err) {
+    console.error('โหลด warehouse ไม่ได้:', err)
   }
 }
 
@@ -88,11 +108,12 @@ const onPlanChange = () => {
 }
 
 const validate = () => {
-  errors.value = { plan_id: '', qty: '', location_id: '' }
+  errors.value = { plan_id: '', qty: '', location_id: '', warehouse_code: '' }
   let valid = true
   if (!form.value.plan_id) { errors.value.plan_id = 'Required field'; valid = false }
   if (form.value.qty <= 0) { errors.value.qty = 'Required field'; valid = false }
   if (!form.value.location_id) { errors.value.location_id = 'Required field'; valid = false }
+  if (!form.value.warehouse_code) { errors.value.warehouse_code = 'Required field'; valid = false }
   return valid
 }
 
@@ -106,12 +127,13 @@ const submitGR = async () => {
       sku: selectedPlan.value.sku,
       qty: form.value.qty,
       location_id: form.value.location_id,
+      warehouse_code: form.value.warehouse_code,
     }, { headers: authHeader() })
     message.value = 'รับสินค้าสำเร็จ!'
     success.value = true
-    form.value = { plan_id: '', po_number: '', qty: 0, location_id: '' }
+    form.value = { plan_id: '', po_number: '', qty: 0, location_id: '', warehouse_code: '' }
     selectedPlan.value = null
-    errors.value = { plan_id: '', qty: '', location_id: '' }
+    errors.value = { plan_id: '', qty: '', location_id: '', warehouse_code: '' }
     fetchNextPO()
     fetchPlans()
   } catch (err) {
@@ -125,6 +147,7 @@ const submitGR = async () => {
 onMounted(() => {
   fetchNextPO()
   fetchLocations()
+  fetchWarehouses()
   fetchPlans()
 })
 </script>

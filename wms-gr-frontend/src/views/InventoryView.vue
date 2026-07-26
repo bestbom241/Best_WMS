@@ -6,7 +6,7 @@
       <table v-if="stockList.length > 0">
         <thead>
           <tr>
-            <th>SKU</th><th>ชื่อสินค้า</th><th>จำนวนคงเหลือ</th><th>Location</th>
+            <th>SKU</th><th>ชื่อสินค้า</th><th>จำนวนคงเหลือ</th><th>Warehouse</th><th>Location</th>
           </tr>
         </thead>
         <tbody>
@@ -14,6 +14,7 @@
             <td>{{ item.sku }}</td>
             <td>{{ item.name }}</td>
             <td>{{ item.qty }}</td>
+            <td>{{ item.warehouse_code }}</td>
             <td>{{ item.location }}</td>
           </tr>
         </tbody>
