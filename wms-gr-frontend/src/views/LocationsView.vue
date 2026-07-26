@@ -8,6 +8,15 @@
         <span v-if="errors.location_code" class="error-msg">{{ errors.location_code }}</span>
       </div>
       <div class="form-group">
+        <label>Warehouse</label>
+        <select v-model="form.warehouse_code">
+          <option value="">-- เลือก Warehouse --</option>
+          <option v-for="wh in warehouses" :key="wh.id" :value="wh.warehouse_code">
+            {{ wh.warehouse_code }} — {{ wh.name }}
+          </option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Zone</label>
         <input v-model="form.zone" />
       </div>
@@ -35,12 +44,13 @@
       <table v-if="locations.length > 0">
         <thead>
           <tr>
-            <th>Code</th><th>Zone</th><th>Rack</th><th>Shelf</th><th>Capacity</th><th></th>
+            <th>Code</th><th>Warehouse</th><th>Zone</th><th>Rack</th><th>Shelf</th><th>Capacity</th><th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="loc in locations" :key="loc.id">
             <td>{{ loc.location_code }}</td>
+            <td>{{ loc.warehouse_code }}</td>
             <td>{{ loc.zone }}</td>
             <td>{{ loc.rack }}</td>
             <td>{{ loc.shelf }}</td>
@@ -58,9 +68,10 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
-const form = ref({ location_code: '', zone: '', rack: '', shelf: '', capacity: 0 })
+const form = ref({ location_code: '', warehouse_code: '', zone: '', rack: '', shelf: '', capacity: 0 })
 const errors = ref({ location_code: '' })
 const locations = ref([])
+const warehouses = ref([])
 const creating = ref(false)
 const message = ref('')
 const success = ref(false)
@@ -71,6 +82,15 @@ const fetchLocations = async () => {
     locations.value = res.data
   } catch (err) {
     console.error('โหลด location ไม่ได้:', err)
+  }
+}
+
+const fetchWarehouses = async () => {
+  try {
+    const res = await axios.get('/api/warehouses')
+    warehouses.value = res.data
+  } catch (err) {
+    console.error('โหลด warehouse ไม่ได้:', err)
   }
 }
 
@@ -86,7 +106,7 @@ const createLocation = async () => {
     await axios.post('/api/locations', form.value)
     message.value = 'เพิ่ม location สำเร็จ!'
     success.value = true
-    form.value = { location_code: '', zone: '', rack: '', shelf: '', capacity: 0 }
+    form.value = { location_code: '', warehouse_code: '', zone: '', rack: '', shelf: '', capacity: 0 }
     fetchLocations()
   } catch (err) {
     message.value = err.response?.data?.error || 'เกิดข้อผิดพลาด'
@@ -105,7 +125,10 @@ const deactivate = async (loc) => {
   }
 }
 
-onMounted(fetchLocations)
+onMounted(() => {
+  fetchLocations()
+  fetchWarehouses()
+})
 </script>
 
 <style scoped>
@@ -115,7 +138,7 @@ h2 { margin-bottom: 16px; color: #34495e; }
 .form-group { margin-bottom: 16px; }
 label { display: block; margin-bottom: 6px; font-weight: 500; color: #555; }
 .required { color: #e74c3c; }
-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; }
+input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; }
 .input-error { border-color: #e74c3c !important; background: #fff5f5; }
 .error-msg { color: #e74c3c; font-size: 12px; margin-top: 4px; display: block; }
 button { background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 8px; }

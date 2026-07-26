@@ -9,6 +9,7 @@ import CustomersView from '../views/CustomersView.vue'
 import GRPlansView from '../views/GRPlansView.vue'
 import OutboundPlansView from '../views/OutboundPlansView.vue'
 import PickingView from '../views/PickingView.vue'
+import WarehousesView from '../views/WarehousesView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -18,6 +19,7 @@ const router = createRouter({
     { path: '/outbound-plans', component: OutboundPlansView },
     { path: '/picking', component: PickingView },
     { path: '/inventory', component: InventoryView },
+    { path: '/warehouses', component: WarehousesView },
     { path: '/locations', component: LocationsView },
     { path: '/products', component: ProductsView },
     { path: '/suppliers', component: SuppliersView },

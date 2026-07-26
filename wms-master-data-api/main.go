@@ -27,17 +27,28 @@ type Product struct {
 	IsActive  bool           `json:"is_active" gorm:"default:true"`
 }
 
+type Warehouse struct {
+	ID            string         `json:"id" gorm:"type:varchar(36);primaryKey"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	WarehouseCode string         `json:"warehouse_code" gorm:"uniqueIndex"`
+	Name          string         `json:"name"`
+	IsActive      bool           `json:"is_active" gorm:"default:true"`
+}
+
 type Location struct {
-	ID           string         `json:"id" gorm:"type:varchar(36);primaryKey"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `json:"deleted_at" gorm:"index"`
-	LocationCode string         `json:"location_code" gorm:"uniqueIndex"`
-	Zone         string         `json:"zone"`
-	Rack         string         `json:"rack"`
-	Shelf        string         `json:"shelf"`
-	Capacity     int            `json:"capacity"`
-	IsActive     bool           `json:"is_active" gorm:"default:true"`
+	ID            string         `json:"id" gorm:"type:varchar(36);primaryKey"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	LocationCode  string         `json:"location_code" gorm:"uniqueIndex"`
+	WarehouseCode string         `json:"warehouse_code"`
+	Zone          string         `json:"zone"`
+	Rack          string         `json:"rack"`
+	Shelf         string         `json:"shelf"`
+	Capacity      int            `json:"capacity"`
+	IsActive      bool           `json:"is_active" gorm:"default:true"`
 }
 
 type Supplier struct {
@@ -99,6 +110,7 @@ func initDB() {
 	}
 	fmt.Println("เชื่อม db สำเร็จ")
 	db.AutoMigrate(&Product{})
+	db.AutoMigrate(&Warehouse{})
 	db.AutoMigrate(&Location{})
 	db.AutoMigrate(&Supplier{})
 	db.AutoMigrate(&Customer{})
@@ -354,6 +366,82 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "ปิด customer สำเร็จ"})
 	})
 
+	// ── Warehouse endpoints ──────────────────────────
+
+	r.GET("/api/warehouses", func(c *gin.Context) {
+		var list []Warehouse
+		db.Where("is_active = ?", true).Find(&list)
+		c.JSON(http.StatusOK, list)
+	})
+
+	r.GET("/api/warehouses/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var wh Warehouse
+		result := db.Where("id = ? OR warehouse_code = ?", id, id).First(&wh)
+		if result.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ warehouse นี้"})
+			return
+		}
+		c.JSON(http.StatusOK, wh)
+	})
+
+	r.POST("/api/warehouses", func(c *gin.Context) {
+		var body struct {
+			WarehouseCode string `json:"warehouse_code"`
+			Name          string `json:"name"`
+		}
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if body.WarehouseCode == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "warehouse_code ห้ามว่าง"})
+			return
+		}
+		wh := Warehouse{
+			ID:            uuid.New().String(),
+			WarehouseCode: body.WarehouseCode,
+			Name:          body.Name,
+			IsActive:      true,
+		}
+		result := db.Create(&wh)
+		if result.Error != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "warehouse_code นี้มีอยู่แล้ว"})
+			return
+		}
+		c.JSON(http.StatusCreated, wh)
+	})
+
+	r.PUT("/api/warehouses/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var wh Warehouse
+		if err := db.First(&wh, "id = ?", id).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ warehouse นี้"})
+			return
+		}
+		var body struct {
+			Name     string `json:"name"`
+			IsActive bool   `json:"is_active"`
+		}
+		c.BindJSON(&body)
+		wh.Name = body.Name
+		wh.IsActive = body.IsActive
+		db.Save(&wh)
+		c.JSON(http.StatusOK, wh)
+	})
+
+	r.DELETE("/api/warehouses/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var wh Warehouse
+		if err := db.First(&wh, "id = ?", id).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบ warehouse นี้"})
+			return
+		}
+		wh.IsActive = false
+		db.Save(&wh)
+		c.JSON(http.StatusOK, gin.H{"message": "ปิด warehouse สำเร็จ"})
+	})
+
 	// ── Location endpoints ───────────────────────────
 
 	r.GET("/api/locations", func(c *gin.Context) {
@@ -375,11 +463,12 @@ func main() {
 
 	r.POST("/api/locations", func(c *gin.Context) {
 		var body struct {
-			LocationCode string `json:"location_code"`
-			Zone         string `json:"zone"`
-			Rack         string `json:"rack"`
-			Shelf        string `json:"shelf"`
-			Capacity     int    `json:"capacity"`
+			LocationCode  string `json:"location_code"`
+			WarehouseCode string `json:"warehouse_code"`
+			Zone          string `json:"zone"`
+			Rack          string `json:"rack"`
+			Shelf         string `json:"shelf"`
+			Capacity      int    `json:"capacity"`
 		}
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -390,13 +479,14 @@ func main() {
 			return
 		}
 		loc := Location{
-			ID:           uuid.New().String(),
-			LocationCode: body.LocationCode,
-			Zone:         body.Zone,
-			Rack:         body.Rack,
-			Shelf:        body.Shelf,
-			Capacity:     body.Capacity,
-			IsActive:     true,
+			ID:            uuid.New().String(),
+			LocationCode:  body.LocationCode,
+			WarehouseCode: body.WarehouseCode,
+			Zone:          body.Zone,
+			Rack:          body.Rack,
+			Shelf:         body.Shelf,
+			Capacity:      body.Capacity,
+			IsActive:      true,
 		}
 		result := db.Create(&loc)
 		if result.Error != nil {
@@ -414,13 +504,15 @@ func main() {
 			return
 		}
 		var body struct {
-			Zone     string `json:"zone"`
-			Rack     string `json:"rack"`
-			Shelf    string `json:"shelf"`
-			Capacity int    `json:"capacity"`
-			IsActive bool   `json:"is_active"`
+			WarehouseCode string `json:"warehouse_code"`
+			Zone          string `json:"zone"`
+			Rack          string `json:"rack"`
+			Shelf         string `json:"shelf"`
+			Capacity      int    `json:"capacity"`
+			IsActive      bool   `json:"is_active"`
 		}
 		c.BindJSON(&body)
+		loc.WarehouseCode = body.WarehouseCode
 		loc.Zone = body.Zone
 		loc.Rack = body.Rack
 		loc.Shelf = body.Shelf

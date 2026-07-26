@@ -31,6 +31,7 @@
         <span class="dropdown-trigger" :class="{ active: isMasterRoute }" @click="masterOpen = !masterOpen">Master ▾</span>
         <div class="dropdown-menu" v-if="masterOpen">
           <RouterLink to="/products" @click="masterOpen = false">Products</RouterLink>
+          <RouterLink to="/warehouses" @click="masterOpen = false">Warehouses</RouterLink>
           <RouterLink to="/locations" @click="masterOpen = false">Locations</RouterLink>
           <RouterLink to="/suppliers" @click="masterOpen = false">Suppliers</RouterLink>
           <RouterLink to="/customers" @click="masterOpen = false">Customers</RouterLink>
@@ -56,7 +57,7 @@ const loginError = ref('')
 const route = useRoute()
 const masterOpen = ref(false)
 const dropdownRef = ref(null)
-const masterPaths = ['/products', '/locations', '/suppliers', '/customers']
+const masterPaths = ['/products', '/warehouses', '/locations', '/suppliers', '/customers']
 const isMasterRoute = computed(() => masterPaths.includes(route.path))
 
 const handleClickOutside = (e) => {
