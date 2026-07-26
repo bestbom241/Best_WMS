@@ -81,6 +81,27 @@ services:
       timeout: 5s
       retries: 10
 
+  wms-outbound-api:
+    build: ./wms-outbound-api
+    environment:
+      DB_HOST: postgres
+      INVENTORY_URL: http://wms-inventory-api:3001
+      MASTER_DATA_URL: http://wms-master-data-api:3003
+    ports:
+      - "${OUTBOUND_PORT}:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wms-inventory-api:
+        condition: service_healthy
+      wms-master-data-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3004/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   wms-gr-frontend:
     build: ./wms-gr-frontend
     ports:
@@ -93,6 +114,8 @@ services:
       wms-master-data-api:
         condition: service_healthy
       wms-gr-api:
+        condition: service_healthy
+      wms-outbound-api:
         condition: service_healthy
 
 volumes:
