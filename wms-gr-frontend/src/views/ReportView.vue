@@ -6,7 +6,7 @@
       <div class="report-row">
         <div>
           <strong>Inventory</strong>
-          <p>สต็อกสินค้าคงคลัง (SKU, ชื่อสินค้า, จำนวน, Location)</p>
+          <p>สต็อกสินค้าคงคลัง (SKU, ชื่อสินค้า, จำนวน, Warehouse, Location)</p>
         </div>
         <button @click="exportInventory" :disabled="loading.inventory">
           {{ loading.inventory ? 'กำลังส่งออก...' : 'Export Inventory.xlsx' }}
@@ -73,7 +73,7 @@ const runExport = async (key, url, columns, sheetName, filename) => {
 
 const exportInventory = () => runExport(
   'inventory', '/api/report/inventory',
-  [['sku', 'SKU'], ['name', 'ชื่อสินค้า'], ['qty', 'จำนวนคงเหลือ'], ['location', 'Location']],
+  [['sku', 'SKU'], ['name', 'ชื่อสินค้า'], ['qty', 'จำนวนคงเหลือ'], ['warehouse_code', 'Warehouse'], ['location', 'Location']],
   'Inventory', 'inventory.xlsx'
 )
 
